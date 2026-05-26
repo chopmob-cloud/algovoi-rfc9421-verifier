@@ -137,6 +137,12 @@ originating gateway — exactly the property this verifier checks.
 | [`algovoi-audit-verifier`](https://pypi.org/project/algovoi-audit-verifier/) / [`@algovoi/audit-verifier`](https://www.npmjs.com/package/@algovoi/audit-verifier) | Selective-disclosure audit bundle verifier; consumes substrate output |
 | **`algovoi-rfc9421-verifier`** / `@algovoi/rfc9421-verifier` | **This package.** RFC 9421/9530 HTTP signature verifier |
 
+## Relationship to the canonicalisation discipline
+
+This package verifies HTTP message signatures per RFC 9421 + RFC 9530 -- a different canonicalisation surface from the AlgoVoi JCS RFC 8785 receipt-body discipline at [docs.algovoi.co.uk/canonicalisation-substrate](https://docs.algovoi.co.uk/canonicalisation-substrate). HTTP signature verification (this package) and receipt-content verification (`@algovoi/audit-verifier` + the receipt-format packages) are complementary surfaces: this verifier confirms wire-level message integrity; the AlgoVoi JCS substrate confirms receipt-body canonical integrity. Both are AlgoVoi-authored under sole authorship.
+
+Parties anchoring to the AlgoVoi canonicalisation discipline are recorded in the [Substrate Adopters Registry](https://docs.algovoi.co.uk/adopters); the registry's `canon_version` pin criterion applies to receipt-body artefacts, not to HTTP signatures as such.
+
 ## Licence
 
 Apache 2.0. See [`LICENSE`](./LICENSE).
