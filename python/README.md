@@ -129,10 +129,15 @@ horizon 2033-05-04). The migration boundary (receipts before / after
 
 ## Spec references
 
-- [PR #2436](https://github.com/x402-foundation/x402/pull/2436) -- canonicalisation discipline
-- [PR #2440](https://github.com/x402-foundation/x402/pull/2440) -- composite trust-query
-- [PR #2434](https://github.com/x402-foundation/x402/pull/2434) -- compliance-receipt-fixture
-- [draft-vauban-x402-stark-receipts](https://datatracker.ietf.org/doc/draft-vauban-x402-stark-receipts/) -- IETF I-D normatively referencing the substrate
+- [draft-hopley-x402-canonicalisation-jcs-v1](https://datatracker.ietf.org/doc/draft-hopley-x402-canonicalisation-jcs-v1/) -- IETF I-D (Independent Submission, Informational, sole AlgoVoi authorship). Specifies the JCS RFC 8785 receipt-body canonicalisation discipline this HTTP-signature verifier composes against.
+- [PR #2453](https://github.com/x402-foundation/x402/pull/2453) -- live upstream spec PR for the canonicalisation discipline (replaces closed #2436).
+- [draft-vauban-x402-stark-receipts](https://datatracker.ietf.org/doc/draft-vauban-x402-stark-receipts/) -- third-party adopter-authored receipt format that anchors to the AlgoVoi canonicalisation discipline.
+
+## Relationship to the canonicalisation discipline
+
+This package verifies HTTP message signatures per RFC 9421 + RFC 9530 -- a different canonicalisation surface from the AlgoVoi JCS RFC 8785 receipt-body discipline at [docs.algovoi.co.uk/canonicalisation-substrate](https://docs.algovoi.co.uk/canonicalisation-substrate). HTTP signature verification (this package) and receipt-content verification (`algovoi-audit-verifier` + the receipt-format packages) are complementary surfaces: this verifier confirms wire-level message integrity; the AlgoVoi JCS substrate confirms receipt-body canonical integrity. Both are AlgoVoi-authored under sole authorship.
+
+Parties anchoring to the AlgoVoi canonicalisation discipline are recorded in the [Substrate Adopters Registry](https://docs.algovoi.co.uk/adopters); the registry's `canon_version` pin criterion applies to receipt-body artefacts, not to HTTP signatures as such.
 
 ## Licence
 
