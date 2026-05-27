@@ -151,7 +151,7 @@ def verify_request(
     public_key: PublicKey,
     scheme: str = "https",
     require_content_digest: bool = True,
-    require_algorithm: str | None = "sha-256",
+    require_algorithm: str | None = None,
     mode: str = "algovoi-v0",
 ) -> VerifyResult:
     """High-level verification of an RFC 9421-signed HTTP request.

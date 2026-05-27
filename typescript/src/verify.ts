@@ -182,11 +182,11 @@ export async function verifyRequest(
   }
 
   const requireCd = input.requireContentDigest ?? true;
-  // null = no algorithm requirement (accept any); undefined = default to sha-256
+  // string = enforce that specific algorithm; null or undefined = accept any
+  // supported algorithm present in the Content-Digest header (SHA-256 or
+  // SHA-512 in this v0.2.x). Default is permissive.
   const requireAlg: string | undefined =
-    input.requireAlgorithm === null
-      ? undefined
-      : (input.requireAlgorithm ?? "sha-256");
+    input.requireAlgorithm == null ? undefined : input.requireAlgorithm;
 
   if (requireCd) {
     const cdHeader = normHeaders["content-digest"];

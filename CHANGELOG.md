@@ -4,6 +4,45 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 `@algovoi/rfc9421-verifier` (npm) are documented here. Both packages
 ship in lock-step at the same version.
 
+## 0.2.1 — 2026-05-27
+
+### Changed
+
+- Default value of `require_algorithm` / `requireAlgorithm` parameter
+  on `verify_request` / `verifyRequest` changed from `"sha-256"` to
+  `None` / `null` (no algorithm requirement). When unspecified, the
+  verifier now accepts any RFC 9530-registered algorithm it supports
+  (currently SHA-256 and SHA-512) present in the Content-Digest
+  header and verifies it against the body.
+
+  This makes the common case work transparently: a request whose
+  Content-Digest carries SHA-512 (as Envoys-style implementations do
+  for bodies ≥4096 bytes per RFC 9530 §3) now verifies without the
+  caller having to pre-inspect the header or opt out of strict mode.
+
+  To enforce a specific algorithm (the previous default behaviour),
+  pass `require_algorithm="sha-256"` / `requireAlgorithm: "sha-256"`
+  explicitly.
+
+### Compatibility
+
+This change is strictly more permissive than 0.2.0:
+
+- Callers who passed nothing and had a `sha-256=...` Content-Digest
+  header continue to verify identically.
+- Callers who passed `"sha-256"` continue to enforce SHA-256 only.
+- Callers who passed `None` / `null` continue to skip the algorithm
+  requirement.
+- The only behaviour change is for callers who passed nothing and
+  whose Content-Digest header carried `sha-512=...` only — those
+  failed in 0.2.0 with "required algorithm 'sha-256' not present in
+  header" and now succeed.
+
+No public API surface changes, no breaking changes to existing tests
+(20 Python + 18 TypeScript pass unchanged), and the full 7-of-7
+cross-validation against external Envoys and Hippo fixtures now
+passes with no flag at all (vec-5 SHA-512 included).
+
 ## 0.2.0 — 2026-05-27
 
 ### Added
