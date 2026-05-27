@@ -1,3 +1,7 @@
+> **AlgoVoi is available for acquisition** — [docs.algovoi.co.uk/acquisition](https://docs.algovoi.co.uk/acquisition)
+
+---
+
 # algovoi-rfc9421-verifier
 
 [![PyPI](https://img.shields.io/pypi/v/algovoi-rfc9421-verifier?label=PyPI)](https://pypi.org/project/algovoi-rfc9421-verifier/)
