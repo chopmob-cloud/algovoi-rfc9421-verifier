@@ -33,6 +33,12 @@ class ParsedSignatureInput:
     covered_components: list[str]
     parameters: dict[str, str | int]
     raw: str
+    params_block: str = ""
+    """The post-label portion of the Signature-Input header value, i.e.
+    the Inner List + parameters block exactly as it appeared on the wire.
+    This is what the @signature-params line in the RFC 9421 §2.5 signing
+    base must contain. Empty if the input was the unlabelled form (no
+    label= prefix to strip)."""
 
 
 _LABEL_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9_-]*)\s*=\s*")
@@ -76,6 +82,10 @@ def parse_signature_input(header_value: str) -> ParsedSignatureInput:
             f"no label or covered-components list found at start: {header_value[:40]!r}"
         )
 
+    # Capture the post-label portion verbatim. This is what the
+    # @signature-params line of the RFC 9421 signing base must contain.
+    params_block = rest
+
     covered_match = _COVERED_RE.match(rest)
     if not covered_match:
         raise SignatureInputParseError(
@@ -103,6 +113,7 @@ def parse_signature_input(header_value: str) -> ParsedSignatureInput:
         covered_components=covered_components,
         parameters=parameters,
         raw=header_value,
+        params_block=params_block,
     )
 
 

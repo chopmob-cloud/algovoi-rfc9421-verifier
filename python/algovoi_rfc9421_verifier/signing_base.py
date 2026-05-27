@@ -43,6 +43,8 @@ def build_signing_base(
     status: int | None = None,
     headers: dict[str, str] | None = None,
     parameters: dict[str, str | int] | None = None,
+    mode: str = "algovoi-v0",
+    signature_params_raw: str | None = None,
 ) -> str:
     """Build the RFC 9421 signing base.
 
@@ -54,9 +56,34 @@ def build_signing_base(
     (created, expires, nonce, etc.) so derived components like
     "created" can resolve.
 
+    mode selects the signing-base shape:
+      - "algovoi-v0" (default): preserves the v0.1.0 behaviour for
+        backward compatibility with the AlgoVoi internal fixture and
+        the rfc9421_proxy_chain_v0 conformance set. @method is
+        lowercased and no @signature-params line is appended.
+      - "rfc9421": full RFC 9421 §2.5 compliance. @method is preserved
+        as-supplied (HTTP convention is uppercase), and a final
+        "@signature-params" line is appended carrying signature_params_raw
+        verbatim. This is the shape required to verify external fixtures
+        (Envoys envoys-rfc9421, Hippo hippo-rfc9421, RFC 9421 §B test
+        vectors, and any other RFC-compliant implementation).
+
+    signature_params_raw is the post-label portion of the Signature-Input
+    header value, i.e. the Inner List + parameters block exactly as it
+    appeared on the wire. Required when mode="rfc9421".
+
     Returns the signing base as a newline-joined string. The bytes for
     Ed25519 signing are this string UTF-8 encoded.
     """
+    if mode not in ("algovoi-v0", "rfc9421"):
+        raise SigningBaseError(
+            f"mode must be 'algovoi-v0' or 'rfc9421', got {mode!r}"
+        )
+    if mode == "rfc9421" and signature_params_raw is None:
+        raise SigningBaseError(
+            "rfc9421 mode requires signature_params_raw "
+            "(the post-label portion of the Signature-Input header)"
+        )
     headers = {k.lower(): v for k, v in (headers or {}).items()}
     parameters = parameters or {}
     lines: list[str] = []
@@ -68,7 +95,7 @@ def build_signing_base(
         if c == "@method":
             if method is None:
                 raise SigningBaseError("@method covered but method not supplied")
-            value = method.lower()
+            value = method if mode == "rfc9421" else method.lower()
         elif c == "@authority":
             if authority is None:
                 raise SigningBaseError(
@@ -118,5 +145,8 @@ def build_signing_base(
             value = headers[c]
 
         lines.append(f'"{c}": {value}')
+
+    if mode == "rfc9421":
+        lines.append(f'"@signature-params": {signature_params_raw}')
 
     return "\n".join(lines)

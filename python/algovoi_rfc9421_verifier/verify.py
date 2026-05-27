@@ -152,6 +152,7 @@ def verify_request(
     scheme: str = "https",
     require_content_digest: bool = True,
     require_algorithm: str | None = "sha-256",
+    mode: str = "algovoi-v0",
 ) -> VerifyResult:
     """High-level verification of an RFC 9421-signed HTTP request.
 
@@ -225,6 +226,10 @@ def verify_request(
             scheme=scheme,
             headers=norm_headers,
             parameters=parsed_si.parameters,
+            mode=mode,
+            signature_params_raw=(
+                parsed_si.params_block if mode == "rfc9421" else None
+            ),
         )
     except SigningBaseError as e:
         return result.fail(f"Signing-base build error: {e}")

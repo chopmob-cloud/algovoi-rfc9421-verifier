@@ -15,6 +15,7 @@ import {
 import {
   buildSigningBase,
   SigningBaseError,
+  type SigningBaseMode,
 } from "./signing-base.js";
 import {
   verifyContentDigest,
@@ -50,7 +51,15 @@ export interface VerifyRequestInput {
   publicKey: PublicKey;
   scheme?: string;
   requireContentDigest?: boolean;
-  requireAlgorithm?: string;
+  requireAlgorithm?: string | null;
+  /**
+   * Signing-base mode. Default "algovoi-v0" preserves backward
+   * compatibility with the v0.1.0 internal fixture and the
+   * rfc9421_proxy_chain_v0 conformance set. Set to "rfc9421" to
+   * verify external RFC 9421-compliant fixtures (Envoys, Hippo,
+   * RFC 9421 §B test vectors).
+   */
+  mode?: SigningBaseMode;
 }
 
 function newResult(): VerifyResult {
@@ -173,7 +182,11 @@ export async function verifyRequest(
   }
 
   const requireCd = input.requireContentDigest ?? true;
-  const requireAlg = input.requireAlgorithm ?? "sha-256";
+  // null = no algorithm requirement (accept any); undefined = default to sha-256
+  const requireAlg: string | undefined =
+    input.requireAlgorithm === null
+      ? undefined
+      : (input.requireAlgorithm ?? "sha-256");
 
   if (requireCd) {
     const cdHeader = normHeaders["content-digest"];
@@ -192,6 +205,8 @@ export async function verifyRequest(
     result.content_digest_valid = true;
   }
 
+  const mode: SigningBaseMode = input.mode ?? "algovoi-v0";
+
   let signingBase: string;
   try {
     signingBase = buildSigningBase({
@@ -202,6 +217,9 @@ export async function verifyRequest(
       scheme: input.scheme ?? "https",
       headers: normHeaders,
       parameters: parsedSi.parameters,
+      mode,
+      signatureParamsRaw:
+        mode === "rfc9421" ? parsedSi.params_block : undefined,
     });
   } catch (e) {
     if (e instanceof SigningBaseError) {

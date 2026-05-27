@@ -11,6 +11,8 @@ export class SigningBaseError extends Error {
   }
 }
 
+export type SigningBaseMode = "algovoi-v0" | "rfc9421";
+
 export interface SigningBaseInput {
   coveredComponents: string[];
   method?: string;
@@ -21,9 +23,42 @@ export interface SigningBaseInput {
   status?: number;
   headers?: Record<string, string>;
   parameters?: Record<string, string | number>;
+  /**
+   * Signing-base mode.
+   * - "algovoi-v0" (default): preserves the v0.1.0 behaviour for
+   *   backward compatibility with the AlgoVoi internal fixture and
+   *   the rfc9421_proxy_chain_v0 conformance set. @method is
+   *   lowercased and no @signature-params line is appended.
+   * - "rfc9421": full RFC 9421 §2.5 compliance. @method is preserved
+   *   as-supplied (HTTP convention is uppercase), and a final
+   *   "@signature-params" line is appended carrying
+   *   signatureParamsRaw verbatim. This is the shape required to
+   *   verify external fixtures (Envoys envoys-rfc9421, Hippo
+   *   hippo-rfc9421, RFC 9421 §B test vectors, and any other
+   *   RFC-compliant implementation).
+   */
+  mode?: SigningBaseMode;
+  /**
+   * The post-label portion of the Signature-Input header value, i.e.
+   * the Inner List + parameters block exactly as it appeared on the
+   * wire. Required when mode is "rfc9421".
+   */
+  signatureParamsRaw?: string;
 }
 
 export function buildSigningBase(input: SigningBaseInput): string {
+  const mode: SigningBaseMode = input.mode ?? "algovoi-v0";
+  if (mode !== "algovoi-v0" && mode !== "rfc9421") {
+    throw new SigningBaseError(
+      `mode must be "algovoi-v0" or "rfc9421", got ${JSON.stringify(mode)}`,
+    );
+  }
+  if (mode === "rfc9421" && input.signatureParamsRaw === undefined) {
+    throw new SigningBaseError(
+      "rfc9421 mode requires signatureParamsRaw (the post-label portion of the Signature-Input header)",
+    );
+  }
+
   const normHeaders: Record<string, string> = {};
   for (const [k, v] of Object.entries(input.headers ?? {})) {
     normHeaders[k.toLowerCase()] = v;
@@ -39,7 +74,7 @@ export function buildSigningBase(input: SigningBaseInput): string {
       case "@method":
         if (input.method === undefined)
           throw new SigningBaseError("@method covered but method not supplied");
-        value = input.method.toLowerCase();
+        value = mode === "rfc9421" ? input.method : input.method.toLowerCase();
         break;
       case "@authority":
         if (input.authority === undefined)
@@ -94,6 +129,10 @@ export function buildSigningBase(input: SigningBaseInput): string {
     }
 
     lines.push(`"${c}": ${value}`);
+  }
+
+  if (mode === "rfc9421") {
+    lines.push(`"@signature-params": ${input.signatureParamsRaw}`);
   }
 
   return lines.join("\n");

@@ -16,6 +16,14 @@ export interface ParsedSignatureInput {
   covered_components: string[];
   parameters: Record<string, string | number>;
   raw: string;
+  /**
+   * The post-label portion of the Signature-Input header value, i.e.
+   * the Inner List + parameters block exactly as it appeared on the
+   * wire. This is the value that the @signature-params line in the
+   * RFC 9421 §2.5 signing base must carry. Empty string if the input
+   * was the unlabelled form.
+   */
+  params_block: string;
 }
 
 const LABEL_RE = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*=\s*/;
@@ -50,6 +58,10 @@ export function parseSignatureInput(headerValue: string): ParsedSignatureInput {
     );
   }
 
+  // Capture the post-label portion verbatim. This is what the
+  // @signature-params line of the RFC 9421 signing base must contain.
+  const paramsBlock = rest;
+
   const coveredMatch = COVERED_RE.exec(rest);
   if (!coveredMatch) {
     throw new SignatureInputParseError("no covered-components list found");
@@ -83,6 +95,7 @@ export function parseSignatureInput(headerValue: string): ParsedSignatureInput {
     covered_components: covered,
     parameters,
     raw: trimmed,
+    params_block: paramsBlock,
   };
 }
 
