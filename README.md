@@ -36,6 +36,33 @@ Use cases:
 Both packages are byte-deterministic on identical inputs and tested
 against the same RFC 8032 Section 7.1 Test 1 reference fixture.
 
+## Hosted verification endpoint
+
+AlgoVoi runs a public hosted instance of this verifier at
+[`verify.algovoi.co.uk/rfc9421`](https://verify.algovoi.co.uk/rfc9421).
+No installation required — POST a captured request and get back a full
+`VerifyResult` including the reconstructed signing base:
+
+```bash
+curl -X POST https://verify.algovoi.co.uk/rfc9421 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "POST",
+    "authority": "api.algovoi.co.uk",
+    "path": "/checkout",
+    "headers": {
+      "signature-input": "sig=(\"@method\" \"@authority\" \"@path\" \"content-digest\" \"created\");created=1748534400;keyid=\"test\";alg=\"ed25519\"",
+      "signature": "sig=:<base64-signature>:",
+      "content-digest": "sha-256=:<base64-sha256>:"
+    },
+    "body_b64": "<base64-body>",
+    "public_key_hex": "<64-char hex>",
+    "require_content_digest": true
+  }'
+```
+
+Rate limit: 60 req/min per IP. No authentication required.
+
 ## Quick start
 
 ### Python
