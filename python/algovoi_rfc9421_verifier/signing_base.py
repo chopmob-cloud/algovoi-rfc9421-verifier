@@ -57,16 +57,14 @@ def build_signing_base(
     "created" can resolve.
 
     mode selects the signing-base shape:
-      - "algovoi-v0" (default): preserves the v0.1.0 behaviour for
-        backward compatibility with the AlgoVoi internal fixture and
-        the rfc9421_proxy_chain_v0 conformance set. @method is
-        lowercased and no @signature-params line is appended.
       - "rfc9421": full RFC 9421 §2.5 compliance. @method is preserved
         as-supplied (HTTP convention is uppercase), and a final
         "@signature-params" line is appended carrying signature_params_raw
-        verbatim. This is the shape required to verify external fixtures
-        (Envoys envoys-rfc9421, Hippo hippo-rfc9421, RFC 9421 §B test
-        vectors, and any other RFC-compliant implementation).
+        verbatim. Required when mode="rfc9421".
+      - "algovoi-v0": legacy internal format. @method is lowercased and
+        no @signature-params line is appended. Kept for backward
+        compatibility with the rfc9421_proxy_chain_v0 conformance fixture
+        set signed before v0.2.0.
 
     signature_params_raw is the post-label portion of the Signature-Input
     header value, i.e. the Inner List + parameters block exactly as it

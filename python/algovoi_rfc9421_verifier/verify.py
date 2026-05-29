@@ -11,7 +11,7 @@ Two entry points:
   builds the signing base, verifies the signature and the
   Content-Digest in one call.
 
-This v0.1.0 surface supports Ed25519 only (the substrate's reference
+This v0.2.0 surface supports Ed25519 only (the substrate's reference
 algorithm; aligned with the RFC 8032 Section 7.1 deterministic
 keypair used in the algovoi-jcs-conformance-vectors fixture set).
 Other JOSE algorithms (ECDSA-P256, RSA-PSS, HMAC) are roadmap.
@@ -152,7 +152,7 @@ def verify_request(
     scheme: str = "https",
     require_content_digest: bool = True,
     require_algorithm: str | None = None,
-    mode: str = "algovoi-v0",
+    mode: str = "rfc9421",
 ) -> VerifyResult:
     """High-level verification of an RFC 9421-signed HTTP request.
 
@@ -166,6 +166,14 @@ def verify_request(
 
     Returns a VerifyResult. All errors land in result.errors;
     result.valid is True iff every check passed.
+
+    mode selects the signing-base construction:
+      - "rfc9421" (default): RFC 9421 §2.5 compliant — @method
+        case-preserved, @signature-params line appended. Matches output
+        of algovoi-rfc9421-signer and any other compliant implementation.
+      - "algovoi-v0": legacy internal format — @method lowercased, no
+        @signature-params line. Kept for backward compatibility with the
+        rfc9421_proxy_chain_v0 conformance fixture set signed before v0.2.0.
     """
     result = VerifyResult()
 
@@ -227,9 +235,7 @@ def verify_request(
             headers=norm_headers,
             parameters=parsed_si.parameters,
             mode=mode,
-            signature_params_raw=(
-                parsed_si.params_block if mode == "rfc9421" else None
-            ),
+            signature_params_raw=parsed_si.params_block if mode == "rfc9421" else None,
         )
     except SigningBaseError as e:
         return result.fail(f"Signing-base build error: {e}")
