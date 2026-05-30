@@ -174,6 +174,25 @@ This package verifies HTTP message signatures per RFC 9421 + RFC 9530 -- a diffe
 
 Parties anchoring to the AlgoVoi canonicalisation discipline are recorded in the [Substrate Adopters Registry](https://docs.algovoi.co.uk/adopters); the registry's `canon_version` pin criterion applies to receipt-body artefacts, not to HTTP signatures as such.
 
+## Tests
+
+```bash
+# Python (23 tests)
+pip install -e python/[dev]
+python -m pytest python/tests/ -v
+
+# TypeScript (18 tests)
+cd typescript && npm install && npm test
+```
+
+Both suites cover:
+- Signature-Input / Signature header parsing
+- `build_signing_base` for both `algovoi-v0` and `rfc9421` modes
+- Content-Digest (RFC 9530) computation and verification
+- `verify_signature` (Ed25519 / PyNaCl + @noble/ed25519)
+- `verify_request` end-to-end against the `rfc9421_proxy_chain_v0` corpus fixture
+- Tamper-detection (wrong path, wrong key, bad body)
+
 ## Licence
 
 Apache 2.0. See [`LICENSE`](./LICENSE).
