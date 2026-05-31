@@ -7,7 +7,7 @@
 [![PyPI](https://img.shields.io/pypi/v/algovoi-rfc9421-verifier?label=PyPI)](https://pypi.org/project/algovoi-rfc9421-verifier/)
 [![npm](https://img.shields.io/npm/v/@algovoi/rfc9421-verifier?label=npm)](https://www.npmjs.com/package/@algovoi/rfc9421-verifier)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-green)](./LICENSE)
-[![IETF I-D](https://img.shields.io/badge/companion%20IETF%20I--D-draft--hopley--x402--compliance--receipt--00-blue)](https://datatracker.ietf.org/doc/draft-hopley-x402-compliance-receipt/)
+[![IETF I-D](https://img.shields.io/badge/companion%20IETF%20I--D-draft--hopley--x402--rfc9421--binding--00-blue)](https://datatracker.ietf.org/doc/draft-hopley-x402-rfc9421-binding/)
 
 AlgoVoi-authored reference verifier for
 [RFC 9421 (HTTP Message Signatures)](https://www.rfc-editor.org/rfc/rfc9421)
