@@ -29,12 +29,35 @@ const FIXTURE_HEADERS: Record<string, string> = {
     "sig=:Xj1peMjEYi75R/QQFYpU9q/gHwQKYwgt1etjAX1qc0zugTMJoJ86Uhy/jTZ175b3zFhp0j8cLjmDJvGmySDBAQ==:",
 };
 
+// algovoi-v0 fixture: @method lowercased, "created" covered, no
+// @signature-params line. Verified with mode "algovoi-v0".
 const FIXTURE_SIGNING_BASE =
   '"@method": get\n' +
   '"@authority": api.algovoi.co.uk\n' +
   '"@path": /compliance/attestation\n' +
   '"content-digest": sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:\n' +
   '"created": 1778955520';
+
+// RFC 9421 fixture (v0.3.0 default): @method case-preserved, "created"
+// a parameter (not a covered component), and the @signature-params line
+// appended per RFC 9421 §2.5. Same RFC 8032 §7.1 Test 1 keypair as above.
+// Matches the rfc9421_proxy_chain_v1 conformance vector.
+const FIXTURE_HEADERS_RFC9421: Record<string, string> = {
+  host: "api.algovoi.co.uk",
+  "content-digest":
+    "sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:",
+  "signature-input":
+    'sig=("@method" "@authority" "@path" "content-digest");created=1778955520;keyid="did:web:api.algovoi.co.uk";alg="ed25519"',
+  signature:
+    "sig=:qWRuNCsCUyKO/9MNtGApDxeznFm+07DyK4zN6eF/mnRcrQ3IaRpQOjQxY6xetCL+588L02Ajd3RjUR9jGi2jBw==:",
+};
+
+const FIXTURE_SIGNING_BASE_RFC9421 =
+  '"@method": GET\n' +
+  '"@authority": api.algovoi.co.uk\n' +
+  '"@path": /compliance/attestation\n' +
+  '"content-digest": sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:\n' +
+  '"@signature-params": ("@method" "@authority" "@path" "content-digest");created=1778955520;keyid="did:web:api.algovoi.co.uk";alg="ed25519"';
 
 describe("parseSignatureInput", () => {
   it("parses the full labelled form", () => {
@@ -151,7 +174,24 @@ describe("verifySignature", () => {
 });
 
 describe("verifyRequest (end-to-end)", () => {
-  it("passes the corpus fixture end-to-end", async () => {
+  it("passes the rfc9421 fixture end-to-end (default mode)", async () => {
+    const result = await verifyRequest({
+      method: "GET",
+      authority: "api.algovoi.co.uk",
+      path: "/compliance/attestation",
+      headers: FIXTURE_HEADERS_RFC9421,
+      body: new Uint8Array(),
+      publicKey: RFC8032_PUBKEY_HEX,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.signature_valid).toBe(true);
+    expect(result.content_digest_valid).toBe(true);
+    expect(result.signing_base).toBe(FIXTURE_SIGNING_BASE_RFC9421);
+    expect(result.label).toBe("sig");
+    expect(result.errors).toEqual([]);
+  });
+
+  it("passes the algovoi-v0 fixture with explicit mode", async () => {
     const result = await verifyRequest({
       method: "GET",
       authority: "api.algovoi.co.uk",
@@ -159,16 +199,14 @@ describe("verifyRequest (end-to-end)", () => {
       headers: FIXTURE_HEADERS,
       body: new Uint8Array(),
       publicKey: RFC8032_PUBKEY_HEX,
+      mode: "algovoi-v0",
     });
     expect(result.valid).toBe(true);
-    expect(result.signature_valid).toBe(true);
-    expect(result.content_digest_valid).toBe(true);
     expect(result.signing_base).toBe(FIXTURE_SIGNING_BASE);
-    expect(result.errors).toEqual([]);
   });
 
   it("fails when signature-input is missing", async () => {
-    const headers = { ...FIXTURE_HEADERS };
+    const headers = { ...FIXTURE_HEADERS_RFC9421 };
     delete headers["signature-input"];
     const result = await verifyRequest({
       method: "GET",
@@ -187,7 +225,7 @@ describe("verifyRequest (end-to-end)", () => {
       method: "GET",
       authority: "api.algovoi.co.uk",
       path: "/different/path",
-      headers: FIXTURE_HEADERS,
+      headers: FIXTURE_HEADERS_RFC9421,
       body: new Uint8Array(),
       publicKey: RFC8032_PUBKEY_HEX,
     });
@@ -200,7 +238,7 @@ describe("verifyRequest (end-to-end)", () => {
       method: "GET",
       authority: "api.algovoi.co.uk",
       path: "/compliance/attestation",
-      headers: FIXTURE_HEADERS,
+      headers: FIXTURE_HEADERS_RFC9421,
       body: new TextEncoder().encode("non-empty"),
       publicKey: RFC8032_PUBKEY_HEX,
     });
@@ -208,7 +246,28 @@ describe("verifyRequest (end-to-end)", () => {
     expect(result.errors.some((e) => e.includes("Content-Digest"))).toBe(true);
   });
 
-  it("validates the real corpus fixture file byte-for-byte", async () => {
+  it("validates the rfc9421_proxy_chain_v1 corpus fixture (default mode)", async () => {
+    const fixturePath =
+      "C:/algo/algovoi-jcs-conformance-vectors/vectors/rfc9421_proxy_chain_v1/request.fixture.json";
+    if (!existsSync(fixturePath)) {
+      // Skip when the corpus is not co-located
+      return;
+    }
+    const fixture = JSON.parse(readFileSync(fixturePath, "utf-8"));
+    const req = fixture.request;
+    const result = await verifyRequest({
+      method: req.method,
+      authority: req.authority,
+      path: req.path,
+      headers: req.headers,
+      body: new Uint8Array(),
+      publicKey: fixture.keypair.public_key_hex,
+    });
+    expect(result.valid).toBe(true);
+    expect(result.signing_base).toBe(fixture.signing.signing_base);
+  });
+
+  it("validates the rfc9421_proxy_chain_v0 corpus fixture (explicit algovoi-v0)", async () => {
     const fixturePath =
       "C:/algo/algovoi-jcs-conformance-vectors/vectors/rfc9421_proxy_chain_v0/request.fixture.json";
     if (!existsSync(fixturePath)) {
@@ -224,6 +283,7 @@ describe("verifyRequest (end-to-end)", () => {
       headers: req.headers,
       body: new Uint8Array(),
       publicKey: fixture.keypair.public_key_hex,
+      mode: "algovoi-v0",
     });
     expect(result.valid).toBe(true);
     expect(result.signing_base).toBe(fixture.signing.signing_base);

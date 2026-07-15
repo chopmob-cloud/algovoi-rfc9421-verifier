@@ -53,11 +53,14 @@ export interface VerifyRequestInput {
   requireContentDigest?: boolean;
   requireAlgorithm?: string | null;
   /**
-   * Signing-base mode. Default "algovoi-v0" preserves backward
-   * compatibility with the v0.1.0 internal fixture and the
-   * rfc9421_proxy_chain_v0 conformance set. Set to "rfc9421" to
-   * verify external RFC 9421-compliant fixtures (Envoys, Hippo,
-   * RFC 9421 §B test vectors).
+   * Signing-base mode. Default "rfc9421" (v0.3.0+) builds the full
+   * RFC 9421 §2.5 signing base, including the mandatory
+   * "@signature-params" line, so it verifies any RFC-compliant
+   * signer (external fixtures, and the rfc9421_proxy_chain_v1
+   * conformance set). This matches the Python verify_request default.
+   * Set to "algovoi-v0" for the legacy v0.1.0 base (no
+   * "@signature-params" line, @method lowercased) used by the
+   * rfc9421_proxy_chain_v0 fixture.
    */
   mode?: SigningBaseMode;
 }
@@ -205,7 +208,7 @@ export async function verifyRequest(
     result.content_digest_valid = true;
   }
 
-  const mode: SigningBaseMode = input.mode ?? "algovoi-v0";
+  const mode: SigningBaseMode = input.mode ?? "rfc9421";
 
   let signingBase: string;
   try {

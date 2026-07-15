@@ -83,6 +83,17 @@ const result = await verifyRequest({
 if (result.valid) console.log("verified");
 ```
 
+## Signing-base mode
+
+`verify_request` / `verifyRequest` default to **`rfc9421`** (since v0.3.0),
+building the full RFC 9421 §2.5 signing base including the mandatory
+`@signature-params` line. This verifies any RFC-compliant signer and the
+[`rfc9421_proxy_chain_v1`](https://github.com/chopmob-cloud/algovoi-jcs-conformance-vectors/tree/main/vectors/rfc9421_proxy_chain_v1)
+fixture. Pass `mode: "algovoi-v0"` for the legacy base (no
+`@signature-params` line, `@method` lowercased) used by the
+`rfc9421_proxy_chain_v0` fixture. Python and TypeScript share the same
+default, so cross-language verification stays byte-for-byte identical.
+
 ## API surface (v0.1.0)
 
 | Function | Purpose |
