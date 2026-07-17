@@ -38,7 +38,7 @@ from algovoi_rfc9421_verifier.verify import (
     verify_request,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
 
 __all__ = [
     # parse
