@@ -5,6 +5,8 @@
  * Uses @noble/ed25519 for Ed25519 verification.
  */
 
+import { webcrypto } from "node:crypto";
+
 import * as ed25519 from "@noble/ed25519";
 
 import {
@@ -21,6 +23,16 @@ import {
   verifyContentDigest,
   ContentDigestError,
 } from "./content-digest.js";
+
+// Node 18 compatibility. @noble/ed25519 v2's async hashing reaches for
+// crypto.subtle, which Node 18 does not expose as a global (Node 20+ does).
+// Without it verifyAsync throws "crypto.subtle must be defined", which the
+// verify path below would otherwise swallow as a failed verification. Provide
+// the WebCrypto global when it is absent so verification behaves identically
+// across Node 18, 20, and 22.
+if (typeof (globalThis as { crypto?: unknown }).crypto === "undefined") {
+  (globalThis as { crypto?: unknown }).crypto = webcrypto;
+}
 
 export class VerifyError extends Error {
   constructor(message: string) {
@@ -130,7 +142,16 @@ export async function verifySignature(
   const messageBytes = new TextEncoder().encode(signingBase);
   try {
     return await ed25519.verifyAsync(signatureBytes, messageBytes, pkBytes);
-  } catch {
+  } catch (e) {
+    // A crypto-setup error (e.g. missing crypto.subtle) must not be silently
+    // reported as an invalid signature. Surface it as VerifyError; only a
+    // genuine verification mismatch returns false.
+    if (
+      e instanceof Error &&
+      /crypto\.subtle|subtle must be defined/i.test(e.message)
+    ) {
+      throw new VerifyError(e.message);
+    }
     return false;
   }
 }

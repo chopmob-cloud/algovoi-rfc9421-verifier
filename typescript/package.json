@@ -1,6 +1,6 @@
 {
   "name": "@algovoi/rfc9421-verifier",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "AlgoVoi RFC 9421 HTTP Message Signatures + RFC 9530 Content-Digest reference verifier",
   "keywords": [
     "rfc9421",
@@ -35,7 +35,8 @@
     "dist/**/*",
     "src/**/*",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc",

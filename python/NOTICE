@@ -1,0 +1,12 @@
+AlgoVoi RFC 9421 Verifier
+Copyright 2026 Christopher Hopley / AlgoVoi (chopmob-cloud)
+
+This product includes software authored by Christopher Hopley (AlgoVoi),
+licensed under the Apache License, Version 2.0.
+
+It verifies HTTP Message Signatures (RFC 9421) over the AlgoVoi
+canonicalisation substrate (RFC 8785 / JCS); see
+https://docs.algovoi.co.uk/rfc9421-verifier.
+
+When redistributing this work or derivative works, retain this NOTICE per
+Apache License, Version 2.0, Section 4(d).
