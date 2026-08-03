@@ -84,6 +84,7 @@ def verify_content_digest(
 
     required_alg = require_algorithm.lower() if require_algorithm else None
     required_seen = False
+    verified_any = False  # D-F1: did any entry use a recognized algorithm?
 
     for algo, digest_b64 in entries:
         algo_lower = algo.lower()
@@ -106,10 +107,17 @@ def verify_content_digest(
                 f"{digest_b64} but body hashes to "
                 f"{base64.b64encode(actual_bytes).decode('ascii')}"
             )
+        verified_any = True
 
     if required_alg and not required_seen:
         raise ContentDigestError(
             f"required algorithm {required_alg!r} not present in header"
+        )
+    # D-F1: if no entry used a recognized algorithm, we verified NOTHING -- a
+    # header like "md5=:...:" (all algos skipped) must NOT return True. Fail closed.
+    if not verified_any:
+        raise ContentDigestError(
+            "no recognized digest algorithm in Content-Digest header; nothing verified"
         )
 
     return True

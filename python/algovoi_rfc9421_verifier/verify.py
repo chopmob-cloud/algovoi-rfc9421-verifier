@@ -215,6 +215,13 @@ def verify_request(
         cd_header = norm_headers.get("content-digest")
         if not cd_header:
             return result.fail("Content-Digest header required but missing")
+        # D-F2: body integrity requires content-digest to be a COVERED component.
+        # Otherwise an attacker swaps the body + recomputes a matching CD header and
+        # the signature (which never covered CD) still verifies. Matching the CD to
+        # the body is necessary but not sufficient -- it must also be signed.
+        _covered = [c.lower().strip().strip('"') for c in parsed_si.covered_components]
+        if "content-digest" not in _covered:
+            return result.fail("Content-Digest required but not a covered signature component")
         try:
             verify_content_digest(
                 body, cd_header, require_algorithm=require_algorithm
