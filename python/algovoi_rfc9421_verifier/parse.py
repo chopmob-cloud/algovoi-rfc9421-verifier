@@ -159,4 +159,14 @@ def parse_signature_value(header_value: str) -> tuple[str, bytes]:
         raise SignatureInputParseError(
             f"signature value is not valid base64: {e}"
         ) from e
+    # Reject NON-CANONICAL base64: validate=True checks the alphabet but not that
+    # the trailing pad bits are zero, so ~16 header encodings decode to the same
+    # Ed25519 signature and would all verify -- signature-string malleability that
+    # breaks any replay/idempotency/dedup key derived from the raw signature header
+    # (a real concern for x402 payment replay protection). Require the canonical
+    # encoding to round-trip exactly.
+    if base64.b64encode(sig_bytes).decode("ascii") != sig_b64:
+        raise SignatureInputParseError(
+            "signature value is not canonical base64 (non-zero pad bits)"
+        )
     return label, sig_bytes

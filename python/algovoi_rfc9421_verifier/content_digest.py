@@ -100,6 +100,13 @@ def verify_content_digest(
             raise ContentDigestError(
                 f"digest entry {algo_lower!r} is not valid base64: {e}"
             ) from e
+        # Reject non-canonical base64 (non-zero pad bits) for the same
+        # malleability reason as the signature value: several encodings decode to
+        # the same digest bytes and would all pass.
+        if base64.b64encode(expected_bytes).decode("ascii") != digest_b64:
+            raise ContentDigestError(
+                f"digest entry {algo_lower!r} is not canonical base64 (non-zero pad bits)"
+            )
         actual_bytes = _SUPPORTED_ALGOS[algo_lower](bytes(body)).digest()
         if expected_bytes != actual_bytes:
             raise ContentDigestError(
