@@ -128,6 +128,18 @@ def verify_signature(
 
     pk_bytes = _public_key_bytes(public_key)
 
+    # Trust-boundary key gate: reject non-canonical, off-curve, and small-order
+    # public keys BEFORE verification. PyNaCl/libsodium's basic verify accepts
+    # small-order keys, which enables signature-malleability / cross-key classes.
+    from algovoi_rfc9421_verifier.keycheck import (
+        WeakKeyError,
+        check_ed25519_public_key,
+    )
+    try:
+        check_ed25519_public_key(pk_bytes)
+    except WeakKeyError as e:
+        raise VerifyError(str(e)) from e
+
     try:
         from nacl.signing import VerifyKey
         from nacl.exceptions import BadSignatureError

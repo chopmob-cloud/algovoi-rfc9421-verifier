@@ -217,9 +217,22 @@ def test_verify_signature_tampered_base_fails():
 
 def test_verify_signature_wrong_key_fails():
     _, sig_bytes = parse_signature_value(FIXTURE_HEADERS_V0["signature"])
-    wrong_key = "00" * 32
+    # A genuinely valid, large-order public key that is NOT the signer's
+    # (RFC 8032 §7.1 Test 1 public key). The signature must not verify under it.
+    wrong_key = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
     ok = verify_signature(FIXTURE_SIGNING_BASE_V0, sig_bytes, wrong_key)
     assert ok is False
+
+
+def test_verify_signature_small_order_key_rejected():
+    # The all-zeros key is a small-order point; the trust-boundary gate rejects it
+    # (raising VerifyError) before signature verification, rather than treating it
+    # as a merely-mismatched key.
+    from algovoi_rfc9421_verifier import VerifyError
+
+    _, sig_bytes = parse_signature_value(FIXTURE_HEADERS_V0["signature"])
+    with pytest.raises(VerifyError):
+        verify_signature(FIXTURE_SIGNING_BASE_V0, sig_bytes, "00" * 32)
 
 
 # ---------------------------------------------------------------------------

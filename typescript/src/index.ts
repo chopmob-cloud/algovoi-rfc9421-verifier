@@ -42,3 +42,9 @@ export {
   type VerifyRequestInput,
   type PublicKey,
 } from "./verify.js";
+
+export {
+  WeakKeyError,
+  checkEd25519PublicKey,
+  isSmallOrder,
+} from "./keycheck.js";

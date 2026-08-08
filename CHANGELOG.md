@@ -4,6 +4,23 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 `@algovoi/rfc9421-verifier` (npm) are documented here. Both packages
 ship in lock-step at the same version.
 
+## 0.4.2 — 2026-08-08
+
+### Security
+
+- **Reject small-order and non-canonical Ed25519 public keys at the trust
+  boundary, before signature verification.** PyNaCl/libsodium's basic verify and
+  `@noble/ed25519` (ZIP215) both accept small-order public keys; accepting one
+  permits signature-malleability / cross-key verification classes. A new
+  self-contained key gate (`keycheck` / `keycheck.ts`, RFC 8032 Appendix A
+  arithmetic) rejects (a) non-canonical encodings (`y >= p`) and off-curve
+  points, and (b) any point of order dividing the cofactor 8 (derived
+  mathematically as `[8]P == identity`, not a hard-coded blocklist). New public
+  API: `check_ed25519_public_key` / `is_small_order` / `WeakKeyError` (Python);
+  `checkEd25519PublicKey` / `isSmallOrder` / `WeakKeyError` (TS). Applies to
+  `verify_signature` and `verify_request` (and therefore the a2a adapter and the
+  kcb consumer). Byte-for-byte parity between the Python and TypeScript gates.
+
 ## 0.4.1 — 2026-08-08
 
 ### Fixed

@@ -35,6 +35,11 @@ from algovoi_rfc9421_verifier.freshness import (
     FreshnessError,
     check_freshness,
 )
+from algovoi_rfc9421_verifier.keycheck import (
+    WeakKeyError,
+    check_ed25519_public_key,
+    is_small_order,
+)
 
 # NB: keyid resolution (did:key / did:web / HTTPS keyid -> Ed25519 key), which
 # does outbound network I/O with an SSRF surface, lives in the separate
@@ -47,7 +52,7 @@ from algovoi_rfc9421_verifier.verify import (
     verify_request,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = [
     # parse
@@ -69,4 +74,8 @@ __all__ = [
     "VerifyError",
     "verify_signature",
     "verify_request",
+    # keycheck (trust-boundary public-key gate)
+    "WeakKeyError",
+    "check_ed25519_public_key",
+    "is_small_order",
 ]

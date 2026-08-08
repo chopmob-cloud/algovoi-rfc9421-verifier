@@ -24,6 +24,7 @@ import {
   ContentDigestError,
 } from "./content-digest.js";
 import { checkFreshness, FreshnessError } from "./freshness.js";
+import { checkEd25519PublicKey, WeakKeyError } from "./keycheck.js";
 
 // Node 18 compatibility. @noble/ed25519 v2's async hashing reaches for
 // crypto.subtle, which Node 18 does not expose as a global (Node 20+ does).
@@ -173,6 +174,15 @@ export async function verifySignature(
     );
   }
   const pkBytes = publicKeyBytes(publicKey);
+  // Trust-boundary key gate: reject non-canonical, off-curve, and small-order
+  // public keys BEFORE verification. @noble/ed25519 (ZIP215) accepts small-order
+  // keys, which enables signature-malleability / cross-key classes.
+  try {
+    checkEd25519PublicKey(pkBytes);
+  } catch (e) {
+    if (e instanceof WeakKeyError) throw new VerifyError(e.message);
+    throw e;
+  }
   const messageBytes = new TextEncoder().encode(signingBase);
   try {
     return await ed25519.verifyAsync(signatureBytes, messageBytes, pkBytes);

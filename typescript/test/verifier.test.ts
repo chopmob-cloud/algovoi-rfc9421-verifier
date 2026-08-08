@@ -167,9 +167,21 @@ describe("verifySignature", () => {
 
   it("rejects a wrong public key", async () => {
     const { signature } = parseSignatureValue(FIXTURE_HEADERS.signature);
+    // A genuinely valid, large-order public key that is NOT this fixture's
+    // signer (the pubkey for seed …cae3d55). The signature must not verify.
+    const wrongKey =
+      "700e2ce7c4b674427eab27ba820bcf6f0faebe68e09fe8564292114e41dc6a41";
     expect(
-      await verifySignature(FIXTURE_SIGNING_BASE, signature, "00".repeat(32)),
+      await verifySignature(FIXTURE_SIGNING_BASE, signature, wrongKey),
     ).toBe(false);
+  });
+
+  it("rejects a small-order public key (trust-boundary gate)", async () => {
+    const { signature } = parseSignatureValue(FIXTURE_HEADERS.signature);
+    // The all-zeros key is a small-order point; the gate throws before verify.
+    await expect(
+      verifySignature(FIXTURE_SIGNING_BASE, signature, "00".repeat(32)),
+    ).rejects.toThrow();
   });
 });
 
