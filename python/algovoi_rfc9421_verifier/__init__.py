@@ -35,17 +35,12 @@ from algovoi_rfc9421_verifier.freshness import (
     FreshnessError,
     check_freshness,
 )
-from algovoi_rfc9421_verifier.keyid_resolver import (
-    KeyResolutionError,
-    SSRFError,
-    ResolvedKey,
-    resolve_keyid,
-    encode_did_key,
-    ed25519_multibase,
-    build_did_document,
-    build_key_source,
-    check_ip_allowed,
-)
+
+# NB: keyid_resolver is intentionally NOT re-exported at the top level. It does
+# outbound HTTPS (with an SSRF guard), whereas this package's public surface is a
+# pure, offline verifier. Keeping it a submodule preserves that audit boundary:
+# import it explicitly as `algovoi_rfc9421_verifier.keyid_resolver`. A future
+# standalone package is the likely long-term home.
 from algovoi_rfc9421_verifier.verify import (
     VerifyResult,
     VerifyError,
@@ -70,16 +65,6 @@ __all__ = [
     # freshness
     "FreshnessError",
     "check_freshness",
-    # keyid resolver
-    "KeyResolutionError",
-    "SSRFError",
-    "ResolvedKey",
-    "resolve_keyid",
-    "encode_did_key",
-    "ed25519_multibase",
-    "build_did_document",
-    "build_key_source",
-    "check_ip_allowed",
     # verify
     "VerifyResult",
     "VerifyError",
