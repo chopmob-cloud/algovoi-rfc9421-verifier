@@ -263,21 +263,52 @@ describe("freshness", () => {
   });
 
   // unit-level checkFreshness
-  it("checkFreshness rejects uncovered created when required", () => {
+  it("checkFreshness rejects uncovered created when required (params unsigned)", () => {
     expect(() =>
       checkFreshness({ created: BASE_TIME }, ["@method", "@path"], {
         now: BASE_TIME,
         requireCreated: true,
+        paramsSigned: false,
       }),
     ).toThrow(FreshnessError);
   });
 
-  it("checkFreshness rejects uncovered expires", () => {
+  it("checkFreshness rejects uncovered expires (params unsigned)", () => {
     expect(() =>
       checkFreshness({ expires: BASE_TIME + 100 }, ["@method", "@path"], {
         now: BASE_TIME,
+        paramsSigned: false,
       }),
     ).toThrow(FreshnessError);
+  });
+
+  it("checkFreshness trusts a created PARAM (not a covered component) in rfc9421 mode", () => {
+    // In rfc9421 mode @signature-params carries created/expires and is signed,
+    // so freshness is enforceable on the param even when it is not also a
+    // covered component. paramsSigned defaults to true.
+    expect(() =>
+      checkFreshness({ created: BASE_TIME }, ["@method", "@path"], {
+        now: BASE_TIME + 5,
+        maxAgeSeconds: 300,
+        requireCreated: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("verifyRequest enforces freshness on a created PARAM not listed as covered", async () => {
+    // Sign covering only @method/@authority/@path/content-digest (NOT created),
+    // but created still rides in @signature-params. rfc9421 mode must trust it.
+    const covered = ["@method", "@authority", "@path", "content-digest"];
+    const headers = await sign({
+      created: BASE_TIME,
+      coveredComponents: covered,
+    });
+    const result = await verify(headers, {
+      now: BASE_TIME + 10,
+      maxAgeSeconds: 300,
+      requireCreated: true,
+    });
+    expect(result.valid).toBe(true);
   });
 });
 

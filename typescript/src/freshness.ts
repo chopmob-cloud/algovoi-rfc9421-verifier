@@ -45,6 +45,15 @@ export interface CheckFreshnessOptions {
    * null.
    */
   requireCreated?: boolean;
+  /**
+   * whether the Signature-Input parameters are themselves signed. True in
+   * RFC 9421 mode, where `@signature-params` (carrying `created` / `expires`)
+   * is part of the signing base, so a param is trustworthy even when it is not
+   * also listed as a covered component. False for legacy modes without a signed
+   * `@signature-params` line, where only covered components are trusted.
+   * Defaults to true.
+   */
+  paramsSigned?: boolean;
 }
 
 function coveredNames(coveredComponents: Iterable<string>): Set<string> {
@@ -102,6 +111,8 @@ export function checkFreshness(
     options.enforceExpires === undefined ? true : options.enforceExpires;
   const requireCreated =
     options.requireCreated === undefined ? false : options.requireCreated;
+  const paramsSigned =
+    options.paramsSigned === undefined ? true : options.paramsSigned;
 
   const covered = coveredNames(coveredComponents);
   const created =
@@ -109,15 +120,20 @@ export function checkFreshness(
   const expires =
     "expires" in parameters ? parameters["expires"] : undefined;
 
+  // Trustworthy for freshness iff the value is signed: either a covered
+  // component, or (rfc9421 mode) carried in the signed @signature-params.
+  const signed = (name: string): boolean => covered.has(name) || paramsSigned;
+
   if (maxAgeSeconds !== null || requireCreated) {
     if (created === undefined || created === null) {
       throw new FreshnessError(
         "freshness required but no 'created' parameter present",
       );
     }
-    if (!covered.has("created")) {
+    if (!signed("created")) {
       throw new FreshnessError(
-        "freshness required but 'created' is not a covered (signed) component",
+        "freshness required but 'created' is not signed " +
+          "(not a covered component and params are unsigned)",
       );
     }
     const createdI = asInt(created, "created");
@@ -136,9 +152,10 @@ export function checkFreshness(
   if (enforceExpires && expires !== undefined && expires !== null) {
     // A present-but-unsigned expiry is attacker-mutable; refusing to guess is
     // the fail-closed choice, consistent with the content-digest coverage rule.
-    if (!covered.has("expires")) {
+    if (!signed("expires")) {
       throw new FreshnessError(
-        "'expires' present but not a covered (signed) component",
+        "'expires' present but not signed " +
+          "(not a covered component and params are unsigned)",
       );
     }
     const expiresI = asInt(expires, "expires");

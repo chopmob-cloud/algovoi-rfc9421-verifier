@@ -122,20 +122,43 @@ def test_nonce_store_error_fails_closed():
 # --- unit-level check_freshness ---
 
 
-def test_check_freshness_uncovered_created_rejected_when_required():
+def test_check_freshness_uncovered_created_rejected_when_params_unsigned():
+    # Legacy: params not signed (no @signature-params) -> uncovered created untrusted.
     with pytest.raises(FreshnessError):
         check_freshness(
             {"created": BASE_TIME},
             ["@method", "@path"],  # created NOT covered
             now=BASE_TIME,
             require_created=True,
+            params_signed=False,
         )
 
 
-def test_check_freshness_uncovered_expires_rejected():
+def test_check_freshness_uncovered_expires_rejected_when_params_unsigned():
     with pytest.raises(FreshnessError):
         check_freshness(
             {"expires": BASE_TIME + 100},
             ["@method", "@path"],  # expires NOT covered
             now=BASE_TIME,
+            params_signed=False,
+        )
+
+
+def test_check_freshness_created_param_trusted_in_rfc9421_mode():
+    # #1829 shape: created is a signed param (not a covered component). In rfc9421
+    # mode (@signature-params signed) it is trusted, so freshness is enforceable.
+    check_freshness(
+        {"created": BASE_TIME},
+        ["@method", "@path", "content-digest"],  # created NOT a component
+        now=BASE_TIME + 5,
+        max_age_seconds=300,
+        params_signed=True,
+    )  # must not raise
+    with pytest.raises(FreshnessError):
+        check_freshness(
+            {"created": BASE_TIME},
+            ["@method", "@path", "content-digest"],
+            now=BASE_TIME + 10_000,  # older than max age
+            max_age_seconds=300,
+            params_signed=True,
         )

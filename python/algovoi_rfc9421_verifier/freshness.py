@@ -50,6 +50,7 @@ def check_freshness(
     max_skew_seconds: int = 60,
     enforce_expires: bool = True,
     require_created: bool = False,
+    params_signed: bool = True,
 ) -> None:
     """Validate the time-based signature parameters. No-op when nothing to check.
 
@@ -67,23 +68,35 @@ def check_freshness(
         enforce_expires: when True, a covered ``expires`` in the past is rejected.
         require_created: when True, a signed ``created`` must be present even if
             ``max_age_seconds`` is None.
+        params_signed: whether the Signature-Input parameters are themselves
+            signed. True in RFC 9421 mode, where ``@signature-params`` (carrying
+            ``created`` / ``expires``) is part of the signing base, so a param is
+            trustworthy even when it is not also listed as a covered component.
+            False for legacy modes without a signed ``@signature-params`` line,
+            where only covered components are trusted.
 
     Raises:
         FreshnessError: on a stale, future, expired, or malformed signature, or
-            when freshness is required but the relevant parameter is not covered.
+            when freshness is required but the relevant value is not signed.
     """
     covered = _covered_names(covered_components)
     created = parameters.get("created")
     expires = parameters.get("expires")
+
+    def _signed(name: str) -> bool:
+        # Trustworthy for freshness iff the value is signed: either a covered
+        # component, or (rfc9421 mode) carried in the signed @signature-params.
+        return name in covered or params_signed
 
     if max_age_seconds is not None or require_created:
         if created is None:
             raise FreshnessError(
                 "freshness required but no 'created' parameter present"
             )
-        if "created" not in covered:
+        if not _signed("created"):
             raise FreshnessError(
-                "freshness required but 'created' is not a covered (signed) component"
+                "freshness required but 'created' is not signed "
+                "(not a covered component and params are unsigned)"
             )
         created_i = _as_int(created, "created")
         if created_i > now + max_skew_seconds:
@@ -98,9 +111,10 @@ def check_freshness(
     if enforce_expires and expires is not None:
         # A present-but-unsigned expiry is attacker-mutable; refusing to guess is
         # the fail-closed choice, consistent with the content-digest coverage rule.
-        if "expires" not in covered:
+        if not _signed("expires"):
             raise FreshnessError(
-                "'expires' present but not a covered (signed) component"
+                "'expires' present but not signed "
+                "(not a covered component and params are unsigned)"
             )
         expires_i = _as_int(expires, "expires")
         if now > expires_i + max_skew_seconds:

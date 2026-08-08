@@ -239,6 +239,9 @@ def verify_request(
             max_skew_seconds=max_skew_seconds,
             enforce_expires=enforce_expires,
             require_created=require_created,
+            # In rfc9421 mode @signature-params (with created/expires) is signed,
+            # so those params are trustworthy even if not covered components.
+            params_signed=(mode == "rfc9421"),
         )
     except FreshnessError as e:
         return result.fail(f"Freshness check failed: {e}")

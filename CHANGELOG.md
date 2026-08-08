@@ -4,6 +4,22 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 `@algovoi/rfc9421-verifier` (npm) are documented here. Both packages
 ship in lock-step at the same version.
 
+## 0.4.1 — 2026-08-08
+
+### Fixed
+
+- **Freshness now trusts a signed `created` / `expires` parameter, not only a
+  covered component.** In rfc9421 mode the `@signature-params` line (which carries
+  `created` / `expires`) is part of the signing base, so those parameters are
+  signed and safe to use for the freshness window even when they are not also
+  listed as covered components. Previously `check_freshness` required them to be
+  covered components, which rejected the common RFC 9421 shape (and the
+  a2aproject/A2A#1829 shape) that carries `created` as a parameter only. The
+  check is mode-aware via a new `params_signed` argument (default True; set False
+  for the legacy `algovoi-v0` mode, where `@signature-params` is not signed and
+  only covered components are trusted). No change for signatures that already
+  cover `created`.
+
 ## 0.4.0 — 2026-08-08
 
 Security hardening release (Sprint A). All new behaviour is additive and

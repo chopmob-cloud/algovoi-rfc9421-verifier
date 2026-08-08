@@ -244,6 +244,7 @@ export async function verifyRequest(
   // would verify. Only covered (signed) created/expires are trusted; see
   // freshness.ts.
   const now = input.now ?? Math.floor(Date.now() / 1000);
+  const mode: SigningBaseMode = input.mode ?? "rfc9421";
   try {
     checkFreshness(parsedSi.parameters, parsedSi.covered_components, {
       now,
@@ -251,6 +252,9 @@ export async function verifyRequest(
       maxSkewSeconds: input.maxSkewSeconds,
       enforceExpires: input.enforceExpires,
       requireCreated: input.requireCreated,
+      // In rfc9421 mode @signature-params (with created/expires) is signed, so
+      // those params are trustworthy even if not covered components.
+      paramsSigned: mode === "rfc9421",
     });
   } catch (e) {
     if (e instanceof FreshnessError) {
@@ -300,8 +304,6 @@ export async function verifyRequest(
   } else {
     result.content_digest_valid = true;
   }
-
-  const mode: SigningBaseMode = input.mode ?? "rfc9421";
 
   let signingBase: string;
   try {
