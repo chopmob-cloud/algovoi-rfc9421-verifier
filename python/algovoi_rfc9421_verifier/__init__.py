@@ -36,11 +36,10 @@ from algovoi_rfc9421_verifier.freshness import (
     check_freshness,
 )
 
-# NB: keyid_resolver is intentionally NOT re-exported at the top level. It does
-# outbound HTTPS (with an SSRF guard), whereas this package's public surface is a
-# pure, offline verifier. Keeping it a submodule preserves that audit boundary:
-# import it explicitly as `algovoi_rfc9421_verifier.keyid_resolver`. A future
-# standalone package is the likely long-term home.
+# NB: keyid resolution (did:key / did:web / HTTPS keyid -> Ed25519 key), which
+# does outbound network I/O with an SSRF surface, lives in the separate
+# `algovoi-rfc9421-keyid` package. Keeping it out of this package preserves the
+# verifier as a pure, offline function.
 from algovoi_rfc9421_verifier.verify import (
     VerifyResult,
     VerifyError,
