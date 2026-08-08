@@ -19,8 +19,9 @@ Other JOSE algorithms (ECDSA-P256, RSA-PSS, HMAC) are roadmap.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
-from typing import Union
+from typing import Callable, Union
 
 from algovoi_rfc9421_verifier.parse import (
     parse_signature_input,
@@ -34,6 +35,10 @@ from algovoi_rfc9421_verifier.signing_base import (
 from algovoi_rfc9421_verifier.content_digest import (
     verify_content_digest,
     ContentDigestError,
+)
+from algovoi_rfc9421_verifier.freshness import (
+    check_freshness,
+    FreshnessError,
 )
 
 
@@ -153,6 +158,15 @@ def verify_request(
     require_content_digest: bool = True,
     require_algorithm: str | None = None,
     mode: str = "rfc9421",
+    now: int | None = None,
+    max_age_seconds: int | None = None,
+    max_skew_seconds: int = 60,
+    enforce_expires: bool = True,
+    require_created: bool = False,
+    expected_tag: str | None = None,
+    require_tag: bool = False,
+    allowed_algorithms: frozenset[str] | set[str] = frozenset({"ed25519"}),
+    nonce_seen: Callable[[str, str], bool] | None = None,
 ) -> VerifyResult:
     """High-level verification of an RFC 9421-signed HTTP request.
 
@@ -211,6 +225,35 @@ def verify_request(
             f"Signature label {s_label!r} does not match Signature-Input label {parsed_si.label!r}"
         )
 
+    # Freshness / replay window (item 1). Runs before the cryptographic check so a
+    # stale or expired signature is rejected regardless of whether its bytes would
+    # verify. Only covered (signed) created/expires are trusted; see freshness.py.
+    if now is None:
+        now = int(time.time())
+    try:
+        check_freshness(
+            parsed_si.parameters,
+            parsed_si.covered_components,
+            now=now,
+            max_age_seconds=max_age_seconds,
+            max_skew_seconds=max_skew_seconds,
+            enforce_expires=enforce_expires,
+            require_created=require_created,
+        )
+    except FreshnessError as e:
+        return result.fail(f"Freshness check failed: {e}")
+
+    # Anti cross-protocol reuse via the RFC 9421 `tag` parameter (item 2). `tag`
+    # rides inside @signature-params, which is signed verbatim, so a present tag is
+    # already cryptographically bound; here we enforce the caller's policy on it.
+    tag_value = parsed_si.parameters.get("tag")
+    if require_tag and tag_value is None:
+        return result.fail("Signature 'tag' parameter required but absent")
+    if expected_tag is not None and tag_value != expected_tag:
+        return result.fail(
+            f"Signature 'tag' {tag_value!r} does not match expected {expected_tag!r}"
+        )
+
     if require_content_digest:
         cd_header = norm_headers.get("content-digest")
         if not cd_header:
@@ -248,10 +291,20 @@ def verify_request(
         return result.fail(f"Signing-base build error: {e}")
     result.signing_base = signing_base
 
-    alg = parsed_si.parameters.get("alg", "ed25519")
+    # Algorithm-downgrade hardening (item 3). Do NOT default a missing alg to
+    # ed25519: an absent alg is ambiguous and a downgrade-by-omission vector, so
+    # reject it. Then pin the alg to the caller's allow-list before verifying.
+    alg = parsed_si.parameters.get("alg")
+    if alg is None:
+        return result.fail("Signature-Input missing 'alg' parameter")
     if not isinstance(alg, str):
         return result.fail(
             f"Signature-Input 'alg' parameter must be string, got {type(alg).__name__}"
+        )
+    if alg.lower() not in {a.lower() for a in allowed_algorithms}:
+        return result.fail(
+            f"Signature algorithm {alg!r} is not in the allowed set "
+            f"{sorted(allowed_algorithms)}"
         )
 
     try:
@@ -263,6 +316,21 @@ def verify_request(
     if not sig_ok:
         return result.fail("Ed25519 signature does not verify against signing base")
     result.signature_valid = True
+
+    # Single-use nonce / replay check (item 1). Deferred until after the signature
+    # verifies so the caller's store is only ever probed with an authentic message,
+    # not with attacker-supplied junk. The caller records the nonce on success; this
+    # library stays stateless and only asks "has this (nonce, keyid) been seen?".
+    if nonce_seen is not None:
+        nonce_value = parsed_si.parameters.get("nonce")
+        if nonce_value is not None:
+            keyid_value = str(parsed_si.parameters.get("keyid", ""))
+            try:
+                already = nonce_seen(str(nonce_value), keyid_value)
+            except Exception as e:  # a store failure must fail closed, not open
+                return result.fail(f"Nonce store check errored: {e}")
+            if already:
+                return result.fail("Signature nonce has already been used (replay)")
 
     result.valid = result.signature_valid and result.content_digest_valid
     return result

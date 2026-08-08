@@ -31,6 +31,10 @@ from algovoi_rfc9421_verifier.content_digest import (
     compute_content_digest,
     verify_content_digest,
 )
+from algovoi_rfc9421_verifier.freshness import (
+    FreshnessError,
+    check_freshness,
+)
 from algovoi_rfc9421_verifier.verify import (
     VerifyResult,
     VerifyError,
@@ -38,7 +42,7 @@ from algovoi_rfc9421_verifier.verify import (
     verify_request,
 )
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"
 
 __all__ = [
     # parse
@@ -52,6 +56,9 @@ __all__ = [
     "ContentDigestError",
     "compute_content_digest",
     "verify_content_digest",
+    # freshness
+    "FreshnessError",
+    "check_freshness",
     # verify
     "VerifyResult",
     "VerifyError",

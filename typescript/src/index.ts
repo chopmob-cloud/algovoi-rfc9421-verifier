@@ -29,6 +29,12 @@ export {
 } from "./content-digest.js";
 
 export {
+  FreshnessError,
+  checkFreshness,
+  type CheckFreshnessOptions,
+} from "./freshness.js";
+
+export {
   VerifyError,
   verifySignature,
   verifyRequest,

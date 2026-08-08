@@ -23,6 +23,7 @@ import {
   verifyContentDigest,
   ContentDigestError,
 } from "./content-digest.js";
+import { checkFreshness, FreshnessError } from "./freshness.js";
 
 // Node 18 compatibility. @noble/ed25519 v2's async hashing reaches for
 // crypto.subtle, which Node 18 does not expose as a global (Node 20+ does).
@@ -75,6 +76,39 @@ export interface VerifyRequestInput {
    * rfc9421_proxy_chain_v0 fixture.
    */
   mode?: SigningBaseMode;
+
+  // --- Sprint A hardening (v0.4.0): freshness / replay / tag / alg ---
+  /**
+   * Current unix time in seconds. Injected so verification is deterministic in
+   * tests and against static fixtures. Defaults to Math.floor(Date.now()/1000).
+   */
+  now?: number;
+  /**
+   * Reject when the signed `created` is older than this many seconds. Undefined
+   * (the default) disables the age check, which is what keeps long-lived static
+   * fixtures valid.
+   */
+  maxAgeSeconds?: number | null;
+  /** Clock-skew tolerance for future-created and past-expires bounds (default 60). */
+  maxSkewSeconds?: number;
+  /** When true (default), a covered `expires` in the past is rejected. */
+  enforceExpires?: boolean;
+  /** When true, a signed `created` must be present even if maxAgeSeconds is off. */
+  requireCreated?: boolean;
+  /** When set, the signature's `tag` parameter must equal this value. */
+  expectedTag?: string | null;
+  /** When true, a `tag` parameter must be present. */
+  requireTag?: boolean;
+  /**
+   * Allow-list of accepted signature algorithms (lowercased on compare).
+   * Defaults to {"ed25519"}. An absent `alg` parameter is always rejected.
+   */
+  allowedAlgorithms?: Iterable<string>;
+  /**
+   * Single-use nonce store probe: (nonce, keyid) -> hasBeenSeen. Called only
+   * after the signature verifies. A thrown error fails closed (never open).
+   */
+  nonceSeen?: (nonce: string, keyid: string) => boolean;
 }
 
 function newResult(): VerifyResult {
@@ -205,6 +239,44 @@ export async function verifyRequest(
     );
   }
 
+  // Freshness / replay window (item 1). Runs before the cryptographic check so
+  // a stale or expired signature is rejected regardless of whether its bytes
+  // would verify. Only covered (signed) created/expires are trusted; see
+  // freshness.ts.
+  const now = input.now ?? Math.floor(Date.now() / 1000);
+  try {
+    checkFreshness(parsedSi.parameters, parsedSi.covered_components, {
+      now,
+      maxAgeSeconds: input.maxAgeSeconds,
+      maxSkewSeconds: input.maxSkewSeconds,
+      enforceExpires: input.enforceExpires,
+      requireCreated: input.requireCreated,
+    });
+  } catch (e) {
+    if (e instanceof FreshnessError) {
+      return fail(result, `Freshness check failed: ${e.message}`);
+    }
+    throw e;
+  }
+
+  // Anti cross-protocol reuse via the RFC 9421 `tag` parameter (item 2). `tag`
+  // rides inside @signature-params, which is signed verbatim, so a present tag
+  // is already cryptographically bound; here we enforce the caller's policy.
+  const tagValue = parsedSi.parameters["tag"];
+  if (input.requireTag && tagValue === undefined) {
+    return fail(result, "Signature 'tag' parameter required but absent");
+  }
+  if (
+    input.expectedTag !== undefined &&
+    input.expectedTag !== null &&
+    tagValue !== input.expectedTag
+  ) {
+    return fail(
+      result,
+      `Signature 'tag' ${JSON.stringify(tagValue)} does not match expected ${JSON.stringify(input.expectedTag)}`,
+    );
+  }
+
   const requireCd = input.requireContentDigest ?? true;
   // string = enforce that specific algorithm; null or undefined = accept any
   // supported algorithm present in the Content-Digest header (SHA-256 or
@@ -253,8 +325,31 @@ export async function verifyRequest(
   }
   result.signing_base = signingBase;
 
+  // Algorithm-downgrade hardening (item 3). Do NOT default a missing alg to
+  // ed25519: an absent alg is ambiguous and a downgrade-by-omission vector, so
+  // reject it. Then pin the alg to the caller's allow-list before verifying.
   const alg = parsedSi.parameters["alg"];
-  const algStr = typeof alg === "string" ? alg : "ed25519";
+  if (alg === undefined) {
+    return fail(result, "Signature-Input missing 'alg' parameter");
+  }
+  if (typeof alg !== "string") {
+    return fail(
+      result,
+      `Signature-Input 'alg' parameter must be string, got ${typeof alg}`,
+    );
+  }
+  const allowedAlgorithms = input.allowedAlgorithms ?? ["ed25519"];
+  const allowedLower = new Set<string>();
+  for (const a of allowedAlgorithms) {
+    allowedLower.add(String(a).toLowerCase());
+  }
+  if (!allowedLower.has(alg.toLowerCase())) {
+    const sorted = Array.from(allowedLower).sort();
+    return fail(
+      result,
+      `Signature algorithm ${JSON.stringify(alg)} is not in the allowed set [${sorted.map((s) => JSON.stringify(s)).join(", ")}]`,
+    );
+  }
 
   let sigOk: boolean;
   try {
@@ -262,7 +357,7 @@ export async function verifyRequest(
       signingBase,
       sigParsed.signature,
       input.publicKey,
-      algStr,
+      alg,
     );
   } catch (e) {
     if (e instanceof VerifyError) {
@@ -275,6 +370,31 @@ export async function verifyRequest(
     return fail(result, "Ed25519 signature does not verify against signing base");
   }
   result.signature_valid = true;
+
+  // Single-use nonce / replay check (item 1). Deferred until after the
+  // signature verifies so the caller's store is only ever probed with an
+  // authentic message, not attacker-supplied junk. This library stays
+  // stateless and only asks "has this (nonce, keyid) been seen?".
+  if (input.nonceSeen !== undefined) {
+    const nonceValue = parsedSi.parameters["nonce"];
+    if (nonceValue !== undefined) {
+      const keyidValue = String(parsedSi.parameters["keyid"] ?? "");
+      let already: boolean;
+      try {
+        already = input.nonceSeen(String(nonceValue), keyidValue);
+      } catch (e) {
+        // A store failure must fail closed, not open.
+        return fail(
+          result,
+          `Nonce store check errored: ${(e as Error).message}`,
+        );
+      }
+      if (already) {
+        return fail(result, "Signature nonce has already been used (replay)");
+      }
+    }
+  }
+
   result.valid = result.signature_valid && result.content_digest_valid;
   return result;
 }

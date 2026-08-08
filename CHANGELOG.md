@@ -4,6 +4,38 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 `@algovoi/rfc9421-verifier` (npm) are documented here. Both packages
 ship in lock-step at the same version.
 
+## 0.4.0 — 2026-08-08
+
+Security hardening release (Sprint A). All new behaviour is additive and
+fail-closed; the new `verify_request` options default to the pre-0.4.0
+behaviour, so upgrading is backward-compatible with one exception noted below.
+
+### Added
+
+- **Replay protection (freshness + nonce).** New `freshness.py` /
+  `freshness.ts` module (`check_freshness` / `checkFreshness`, `FreshnessError`).
+  `verify_request` gained `now`, `max_age_seconds`, `max_skew_seconds`,
+  `enforce_expires`, `require_created`, and a `nonce_seen` callback. A captured
+  signature no longer verifies indefinitely once a caller sets a freshness
+  window or wires a nonce store. Only covered (signed) `created` / `expires`
+  are trusted; a freshness requirement against an uncovered parameter fails
+  closed. Time is injectable (`now`) so static fixtures stay reproducible.
+- **`tag` anti cross-protocol reuse.** `verify_request` gained `expected_tag`
+  and `require_tag`. The RFC 9421 `tag` parameter rides inside
+  `@signature-params` and is therefore already cryptographically bound; these
+  options enforce a caller policy on it. The companion signer
+  (`algovoi-rfc9421-signer` 0.2.0) can now emit `tag`, `nonce`, and `expires`.
+
+### Changed (behaviour)
+
+- **Algorithm-downgrade hardening.** `verify_request` now rejects a
+  Signature-Input with no `alg` parameter instead of silently defaulting to
+  ed25519 (a downgrade-by-omission path), and pins the algorithm against a
+  caller `allowed_algorithms` set (default `{"ed25519"}`). This is the one
+  behaviour change on upgrade: a signer that omitted `alg` will now fail. Our
+  own signer and the conformance fixtures always emit `alg`, so compliant
+  traffic is unaffected.
+
 ## 0.3.3 — 2026-08-02
 
 ### Fixed
