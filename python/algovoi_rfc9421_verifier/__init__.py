@@ -35,6 +35,17 @@ from algovoi_rfc9421_verifier.freshness import (
     FreshnessError,
     check_freshness,
 )
+from algovoi_rfc9421_verifier.keyid_resolver import (
+    KeyResolutionError,
+    SSRFError,
+    ResolvedKey,
+    resolve_keyid,
+    encode_did_key,
+    ed25519_multibase,
+    build_did_document,
+    build_key_source,
+    check_ip_allowed,
+)
 from algovoi_rfc9421_verifier.verify import (
     VerifyResult,
     VerifyError,
@@ -59,6 +70,16 @@ __all__ = [
     # freshness
     "FreshnessError",
     "check_freshness",
+    # keyid resolver
+    "KeyResolutionError",
+    "SSRFError",
+    "ResolvedKey",
+    "resolve_keyid",
+    "encode_did_key",
+    "ed25519_multibase",
+    "build_did_document",
+    "build_key_source",
+    "check_ip_allowed",
     # verify
     "VerifyResult",
     "VerifyError",
