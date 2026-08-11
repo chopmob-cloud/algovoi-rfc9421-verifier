@@ -16,6 +16,8 @@ import {
   buildSigningBase,
   computeContentDigest,
   verifyRequest,
+  parseSignatureValue,
+  SignatureInputParseError,
 } from "../src/index.js";
 
 // RFC 8032 §7.1 Test 2 deterministic keypair (same seed the Python suites use).
@@ -401,5 +403,41 @@ describe("alg hardening", () => {
       allowedAlgorithms: ["ed25519", "ecdsa-p256-sha256"],
     });
     expect(result.valid).toBe(true);
+  });
+});
+
+describe("signature value base64 canonicality", () => {
+  // Node's Buffer.from(_, "base64") is lenient; the parser must fail closed on
+  // non-canonical / malformed encodings so ~16 encodings of one signature do
+  // not all verify (signature-string malleability -> broken replay/dedup keys).
+  const canonical = Buffer.from(Uint8Array.from({ length: 64 }, (_, i) => i)).toString("base64");
+
+  it("accepts canonical base64", () => {
+    const { signature } = parseSignatureValue(`sig=:${canonical}:`);
+    expect(signature.length).toBe(64);
+  });
+
+  it("rejects non-canonical base64 (non-zero pad bits)", () => {
+    // Find an encoding that decodes to the SAME 64 bytes but differs in string:
+    // that is a non-canonical alias of the signature (the malleability we reject).
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const padStart = canonical.indexOf("=");
+    const stem = canonical.slice(0, padStart - 1);
+    const pad = canonical.slice(padStart);
+    const want = Buffer.from(canonical, "base64");
+    let noncanon = "";
+    for (const ch of alphabet) {
+      const cand = stem + ch + pad;
+      if (cand !== canonical && Buffer.from(cand, "base64").equals(want)) {
+        noncanon = cand;
+        break;
+      }
+    }
+    expect(noncanon).not.toBe("");
+    expect(() => parseSignatureValue(`sig=:${noncanon}:`)).toThrow(SignatureInputParseError);
+  });
+
+  it("rejects characters outside the base64 alphabet", () => {
+    expect(() => parseSignatureValue("sig=:not+valid+base64!!:")).toThrow(SignatureInputParseError);
   });
 });

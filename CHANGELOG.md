@@ -2,7 +2,24 @@
 
 All notable changes to `algovoi-rfc9421-verifier` (Python) and
 `@algovoi/rfc9421-verifier` (npm) are documented here. Both packages
-ship in lock-step at the same version.
+ship in lock-step at the same version, except where a release note marks a
+fix as language-specific.
+
+## 0.4.3 (2026-08-11)
+
+### Security
+
+- **Reject non-canonical and malformed base64 in Signature header values
+  (TypeScript / npm only).** `parseSignatureValue` decoded the RFC 8941
+  byte-sequence with Node's `Buffer.from(_, "base64")`, which is lenient: it
+  accepts non-canonical base64 (non-zero pad bits) and silently drops characters
+  outside the base64 alphabet. That is signature base64 malleability (roughly
+  sixteen header encodings of one Ed25519 signature all verify), which breaks any
+  replay, idempotency or dedup key derived from the raw Signature header, a real
+  concern for x402 payment replay protection. A strict alphabet and padding check
+  plus an exact base64 round-trip guard now make a non-canonical or malformed
+  encoding fail closed. The Python, Rust and Go cores already enforced this, so
+  only the npm package changes in this release.
 
 ## 0.4.2 — 2026-08-08
 

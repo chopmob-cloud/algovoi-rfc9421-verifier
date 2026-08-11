@@ -136,12 +136,30 @@ export function parseSignatureValue(headerValue: string): {
   }
 
   const sigB64 = rest.slice(1, -1);
+  // Validate the base64 alphabet and padding strictly. Node's Buffer.from is
+  // lenient: it silently drops characters outside the base64 alphabet, so a
+  // malformed value would decode instead of failing closed. Mirror the Python
+  // core's validate=True.
+  if (!/^[A-Za-z0-9+\/]*={0,2}$/.test(sigB64) || sigB64.length % 4 !== 0) {
+    throw new SignatureInputParseError("signature value is not valid base64");
+  }
   let sigBytes: Uint8Array;
   try {
     sigBytes = new Uint8Array(Buffer.from(sigB64, "base64"));
   } catch (e) {
     throw new SignatureInputParseError(
       `signature value is not valid base64: ${(e as Error).message}`,
+    );
+  }
+  // Reject NON-CANONICAL base64: Buffer.from canonicalises on decode, so ~16
+  // header encodings decode to the same Ed25519 signature and would all verify
+  // -- signature-string malleability that breaks any replay/idempotency/dedup
+  // key derived from the raw signature header (a real concern for x402 payment
+  // replay protection). Require the canonical encoding to round-trip exactly,
+  // matching the Python, Rust and Go cores.
+  if (Buffer.from(sigBytes).toString("base64") !== sigB64) {
+    throw new SignatureInputParseError(
+      "signature value is not canonical base64 (non-zero pad bits)",
     );
   }
   return { label, signature: sigBytes };
