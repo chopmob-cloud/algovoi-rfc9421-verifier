@@ -5,7 +5,7 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 ship in lock-step at the same version, except where a release note marks a
 fix as language-specific.
 
-## Unreleased
+## 0.4.4 (2026-08-15)
 
 ### Added
 
