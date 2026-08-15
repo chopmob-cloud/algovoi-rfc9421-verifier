@@ -179,6 +179,7 @@ def verify_request(
     require_tag: bool = False,
     allowed_algorithms: frozenset[str] | set[str] = frozenset({"ed25519"}),
     nonce_seen: Callable[[str, str], bool] | None = None,
+    required_components: list[str] | None = None,
 ) -> VerifyResult:
     """High-level verification of an RFC 9421-signed HTTP request.
 
@@ -219,6 +220,20 @@ def verify_request(
     result.label = parsed_si.label
     result.covered_components = parsed_si.covered_components
     result.parameters = parsed_si.parameters
+
+    # RC-1: caller policy on covered-component completeness. A signature over a
+    # narrow covered set is cryptographically valid but may omit request-line
+    # components (@method/@authority/@path); when the caller pins a required set, a
+    # signature that omits any of them is rejected here rather than trusting a
+    # narrowly-scoped signature over a rewritten request line. The library returns
+    # the covered list either way.
+    if required_components:
+        _covered = {c.strip().strip('"').lower() for c in parsed_si.covered_components}
+        _missing = [c for c in required_components if c.strip().lower() not in _covered]
+        if _missing:
+            return result.fail(
+                f"required covered components missing: {sorted(_missing)}"
+            )
 
     try:
         s_label, sig_bytes = parse_signature_value(s_value)
