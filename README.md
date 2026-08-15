@@ -114,7 +114,7 @@ const result = await verifyRequest({
 if (result.valid) console.log("verified");
 ```
 
-## API surface (v0.1.0)
+## API surface
 
 | Function | Purpose |
 |---|---|
@@ -126,7 +126,42 @@ if (result.valid) console.log("verified");
 | `parse_signature_value` / `parseSignatureValue` | Parse a `Signature` header. |
 | `compute_content_digest` / `computeContentDigest` | Compute a `Content-Digest` header value for a body. |
 
-## Scope (v0.1.0)
+## Verification hardening options
+
+`verify_request` / `verifyRequest` apply the checks below. Cryptographic verification
+alone does not make an authentic request *safe*: these options let the caller enforce
+freshness, coverage, and algorithm policy on top of a valid signature. Python uses
+snake_case, TypeScript camelCase.
+
+| Option (Python / TypeScript) | Default | Effect |
+|---|---|---|
+| `required_components` / `requiredComponents` | off | Reject unless every listed component (e.g. `@method`, `@authority`, `@path`) is covered by the signature. Closes request-line-rewrite gaps where a valid signature covers only a narrow set. |
+| `require_content_digest` / `requireContentDigest` | `true` | Require a `Content-Digest` header **and** that `content-digest` is a covered component, then verify it against the body. A body not bound to the signature is rejected (no body-swap). |
+| `allowed_algorithms` / `allowedAlgorithms` | `{ed25519}` | Algorithm allow-list. An absent `alg` parameter is always rejected (no downgrade-by-omission). |
+| `now`, `max_age_seconds` / `maxAgeSeconds`, `max_skew_seconds` / `maxSkewSeconds`, `require_created` / `requireCreated`, `enforce_expires` / `enforceExpires` | age check off; skew 60s; expires enforced | Freshness window. Only *signed* `created` / `expires` are trusted. A stale, not-yet-valid, or expired signature is rejected before the cryptographic check. |
+| `nonce_seen` / `nonceSeen` | off | Single-use nonce store probe `(nonce, keyid) -> seen`, called only after the signature verifies. A replayed nonce is rejected; a store error fails closed. |
+| `expected_tag` / `expectedTag`, `require_tag` / `requireTag` | off | Enforce the RFC 9421 `tag` parameter (anti cross-protocol reuse). `tag` rides in the signed `@signature-params`, so it is cryptographically bound. |
+| `mode` | `rfc9421` | Signing-base construction: `rfc9421` (RFC 9421 §2.5) or the legacy `algovoi-v0`. |
+
+**Always on (no option):** the public key is gated before verification. Non-canonical,
+off-curve, and small-order Ed25519 public keys are rejected, and the `Signature` value
+must be canonical base64. These close key- and signature-string malleability classes a
+basic Ed25519 verify would otherwise accept.
+
+```python
+result = verify_request(
+    method=..., authority=..., path=..., headers=..., body=..., public_key=...,
+    required_components=["@method", "@authority", "@path"],  # coverage policy
+    require_content_digest=True,                             # body binding
+    require_created=True, max_age_seconds=300,               # freshness window
+    nonce_seen=store.seen,                                   # single-use nonce
+    allowed_algorithms={"ed25519"},
+)
+if not result.valid:
+    ...  # deny; never treat verification as advisory on a protected route
+```
+
+## Scope
 
 - **Algorithms**: Ed25519 only. ECDSA-P256 and RSA-PSS are roadmap.
 - **Derived components**: `@method`, `@authority`, `@path`,
