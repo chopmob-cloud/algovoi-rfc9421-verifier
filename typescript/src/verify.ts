@@ -110,6 +110,14 @@ export interface VerifyRequestInput {
    * after the signature verifies. A thrown error fails closed (never open).
    */
   nonceSeen?: (nonce: string, keyid: string) => boolean;
+  /**
+   * Required covered components (RC-1). When set, a signature whose covered set
+   * omits any of these (e.g. "@method", "@authority", "@path") is rejected before
+   * verification, closing the request-line-rewrite gap where a valid signature
+   * over a narrow covered set leaves the rest of the request unsigned and mutable.
+   * Case-insensitive. Omit to disable (no behaviour change).
+   */
+  requiredComponents?: string[];
 }
 
 function newResult(): VerifyResult {
@@ -228,6 +236,31 @@ export async function verifyRequest(
   result.covered_components = parsedSi.covered_components;
   result.parameters = parsedSi.parameters;
 
+  // RC-1: caller policy on covered-component completeness. A signature over a
+  // narrow covered set is cryptographically valid but may omit request-line
+  // components (@method/@authority/@path); when the caller pins a required set, a
+  // signature omitting any of them is rejected here rather than trusting a
+  // narrowly-scoped signature over a rewritten request line. The covered list is
+  // still returned either way. (Parity with the Python verifier.)
+  if (input.requiredComponents && input.requiredComponents.length > 0) {
+    const covered = new Set(
+      parsedSi.covered_components.map((c) =>
+        c.trim().replace(/^"+|"+$/g, "").toLowerCase(),
+      ),
+    );
+    const missing = input.requiredComponents.filter(
+      (c) => !covered.has(c.trim().toLowerCase()),
+    );
+    if (missing.length > 0) {
+      const repr = missing
+        .slice()
+        .sort()
+        .map((s) => `'${s}'`)
+        .join(", ");
+      return fail(result, `required covered components missing: [${repr}]`);
+    }
+  }
+
   let sigParsed;
   try {
     sigParsed = parseSignatureValue(sValue);
@@ -302,6 +335,20 @@ export async function verifyRequest(
     const cdHeader = normHeaders["content-digest"];
     if (!cdHeader)
       return fail(result, "Content-Digest header required but missing");
+    // RC-2 body integrity: content-digest must be a COVERED component. Otherwise
+    // an attacker swaps the body + recomputes a matching CD header and the
+    // signature (which never covered CD) still verifies. Matching the CD to the
+    // body is necessary but not sufficient; it must also be signed. (Parity with
+    // the Python verifier; caught by rfc9421_hardening_v1 content_digest_not_covered.)
+    const coveredLower = parsedSi.covered_components.map((c) =>
+      c.trim().replace(/^"+|"+$/g, "").toLowerCase(),
+    );
+    if (!coveredLower.includes("content-digest")) {
+      return fail(
+        result,
+        "Content-Digest required but not a covered signature component",
+      );
+    }
     try {
       verifyContentDigest(input.body, cdHeader, requireAlg);
       result.content_digest_valid = true;
