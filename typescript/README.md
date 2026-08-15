@@ -94,7 +94,7 @@ fixture. Pass `mode: "algovoi-v0"` for the legacy base (no
 `rfc9421_proxy_chain_v0` fixture. Python and TypeScript share the same
 default, so cross-language verification stays byte-for-byte identical.
 
-## API surface (v0.1.0)
+## API surface
 
 | Function | Purpose |
 |---|---|
@@ -106,7 +106,41 @@ default, so cross-language verification stays byte-for-byte identical.
 | `parse_signature_value` / `parseSignatureValue` | Parse a `Signature` header. |
 | `compute_content_digest` / `computeContentDigest` | Compute a `Content-Digest` header value for a body. |
 
-## Scope (v0.1.0)
+## Verification hardening options
+
+`verifyRequest` applies the checks below on top of the signature. A valid signature
+does not by itself make a request *safe*; these options enforce freshness, coverage,
+and algorithm policy (Python names in parentheses):
+
+- `requiredComponents` (`required_components`) — reject unless every listed component
+  (e.g. `@method`, `@authority`, `@path`) is covered (closes request-line-rewrite gaps).
+- `requireContentDigest` (`require_content_digest`, default `true`) — require
+  `content-digest` to be a covered component and verify it against the body (no body-swap).
+- `allowedAlgorithms` (`allowed_algorithms`, default `["ed25519"]`) — algorithm
+  allow-list; an absent `alg` is always rejected.
+- `now`, `maxAgeSeconds`, `maxSkewSeconds`, `requireCreated`, `enforceExpires` —
+  freshness window; only *signed* `created` / `expires` are trusted.
+- `nonceSeen` (`nonce_seen`) — single-use nonce probe `(nonce, keyid) => seen`,
+  checked after the signature verifies; fails closed on a thrown error.
+- `expectedTag` / `requireTag` — enforce the RFC 9421 `tag` (anti cross-protocol reuse).
+
+Always on: non-canonical, off-curve, and small-order Ed25519 public keys are rejected
+before verification, and the `Signature` value must be canonical base64.
+
+```typescript
+const result = await verifyRequest({
+  method: "POST", authority: "api.example", path: "/pay",
+  headers, body, publicKey,
+  requiredComponents: ["@method", "@authority", "@path"],
+  requireCreated: true, maxAgeSeconds: 300,
+  nonceSeen: (nonce, keyid) => store.seen(nonce, keyid),
+});
+if (!result.valid) {
+  // deny
+}
+```
+
+## Scope
 
 - **Algorithms**: Ed25519 only. ECDSA-P256 and RSA-PSS are roadmap.
 - **Derived components**: `@method`, `@authority`, `@path`,
