@@ -5,6 +5,28 @@ All notable changes to `algovoi-rfc9421-verifier` (Python) and
 ship in lock-step at the same version, except where a release note marks a
 fix as language-specific.
 
+## Unreleased
+
+### Added
+
+- **`required_components` / `requiredComponents` verification policy (RC-1,
+  Python + TypeScript).** A caller can pin the covered components a signature
+  must include (typically `@method`, `@authority`, `@path`). A cryptographically
+  valid signature over a narrow covered set that omits any required component is
+  now rejected before verification, closing a request-line-rewrite gap. No
+  behaviour change when the option is omitted. (Python landed on `main`; this
+  entry also covers the TypeScript port.)
+
+### Security
+
+- **Content-Digest must be a covered component (RC-2, TypeScript / npm only).**
+  `verifyRequest` verified that the `Content-Digest` header matched the body but
+  did not require `content-digest` to be a *covered* signature component. A valid
+  signature over a narrow covered set excluding `content-digest` was therefore
+  accepted even though the body was unbound, a body-swap vector. The check now
+  matches the Python verifier. Surfaced by the `rfc9421_hardening_v1` conformance
+  vector `content_digest_not_covered`.
+
 ## 0.4.3 (2026-08-11)
 
 ### Security
