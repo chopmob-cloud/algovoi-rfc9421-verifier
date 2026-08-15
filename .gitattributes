@@ -1,0 +1,25 @@
+# Normalize line endings to LF in the repository and on checkout, so the files
+# packed into published npm and PyPI artifacts always have LF regardless of the
+# OS the release is cut from. Without this, publishing from a Windows checkout
+# (core.autocrlf=true) ships mixed CRLF/LF source in the tarballs.
+* text=auto eol=lf
+
+# Shipped source and metadata: force LF explicitly.
+*.py    text eol=lf
+*.ts    text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.txt   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Never touch binaries.
+*.tgz   binary
+*.whl   binary
+*.gz    binary
+*.png   binary
