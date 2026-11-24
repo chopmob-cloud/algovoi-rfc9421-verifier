@@ -185,7 +185,7 @@ byte-identical.
 ## Companion IETF Internet-Draft
 
 This library is part of the AlgoVoi substrate that anchors
-[`draft-hopley-x402-compliance-receipt-00`](https://datatracker.ietf.org/doc/draft-hopley-x402-compliance-receipt/)
+[`draft-hopley-x402-compliance-receipt-03`](https://datatracker.ietf.org/doc/draft-hopley-x402-compliance-receipt/)
 (Independent Submission, Informational; posted 2026-05-23). The
 receipt-format audit-chain property in the I-D assumes signed
 receipts can be transported and re-verified independently of the
