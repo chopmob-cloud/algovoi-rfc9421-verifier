@@ -1,6 +1,6 @@
 # algovoi-rfc9421-verifier
 
-[![PyPI](https://img.shields.io/pypi/v/algovoi-rfc9421-verifier?label=PyPI)](https://pypi.org/project/algovoi-rfc9421-verifier/)
+[![PyPI](https://img.shields.io/pypi/v/algovoi-rfc9421-verifier?label=PyPI)](https://pypi.org/project/algovoi-rfc9421-verifier/) [![algovoi-jcs-conformance-vectors](https://img.shields.io/badge/algovoi--jcs--conformance--vectors-8A2BE2)](https://github.com/chopmob-cloud/algovoi-jcs-conformance-vectors)
 [![npm](https://img.shields.io/npm/v/@algovoi/rfc9421-verifier?label=npm)](https://www.npmjs.com/package/@algovoi/rfc9421-verifier)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-green)](./LICENSE)
 [![IETF I-D](https://img.shields.io/badge/companion%20IETF%20I--D-draft--hopley--x402--rfc9421--binding--02-blue)](https://datatracker.ietf.org/doc/draft-hopley-x402-rfc9421-binding/)
